@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { prisma } from '@/lib/prisma';
@@ -7,18 +8,39 @@ import { broadcast } from '@/lib/sse';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, phone, city, serviceId, description } = body;
 
-    if (!name || !phone || !city || !serviceId || !description) {
-      return Response.json({ error: 'All fields are required' }, { status: 400 });
+    const {
+      name,
+      phone,
+      city,
+      serviceId,
+      description,
+    } = body;
+
+    if (
+      !name ||
+      !phone ||
+      !city ||
+      !serviceId ||
+      !description
+    ) {
+      return Response.json(
+        { error: 'All fields are required' },
+        { status: 400 }
+      );
     }
 
     const service = await prisma.service.findUnique({
-      where: { id: Number(serviceId) },
+      where: {
+        id: Number(serviceId),
+      },
     });
 
     if (!service) {
-      return Response.json({ error: 'Invalid service' }, { status: 400 });
+      return Response.json(
+        { error: 'Invalid service' },
+        { status: 400 }
+      );
     }
 
     const result = await prisma.$transaction(
@@ -46,7 +68,11 @@ export async function POST(request) {
           },
         });
 
-        const providerIds = await selectProviders(tx, service.name, service.id);
+        const providerIds = await selectProviders(
+          tx,
+          service.name,
+          service.id
+        );
 
         if (providerIds.length === 0) {
           throw new Error('NO_PROVIDERS');
@@ -61,7 +87,9 @@ export async function POST(request) {
           });
 
           await tx.provider.update({
-            where: { id: providerId },
+            where: {
+              id: providerId,
+            },
             data: {
               leadsReceived: {
                 increment: 1,
@@ -70,12 +98,20 @@ export async function POST(request) {
           });
         }
 
-        return { lead, providerIds };
+        return {
+          lead,
+          providerIds,
+        };
       },
-      { isolationLevel: 'Serializable' }
+      {
+        isolationLevel: 'Serializable',
+      }
     );
 
-    broadcast({ type: 'NEW_LEAD', leadId: result.lead.id });
+    broadcast({
+      type: 'NEW_LEAD',
+      leadId: result.lead.id,
+    });
 
     return Response.json({
       success: true,
@@ -83,9 +119,15 @@ export async function POST(request) {
       assignedProviders: result.providerIds.length,
     });
   } catch (error) {
-    if (error.message === 'DUPLICATE' || error.code === 'P2002') {
+    if (
+      error.message === 'DUPLICATE' ||
+      error.code === 'P2002'
+    ) {
       return Response.json(
-        { error: 'This phone number already submitted a lead for this service.' },
+        {
+          error:
+            'This phone number already submitted a lead for this service.',
+        },
         { status: 409 }
       );
     }
@@ -93,7 +135,9 @@ export async function POST(request) {
     console.error('Lead creation error:', error);
 
     return Response.json(
-      { error: 'Internal server error' },
+      {
+        error: 'Internal server error',
+      },
       { status: 500 }
     );
   }
